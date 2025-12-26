@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Audio Sampler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+        /* Custom scrollbar for settings */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center p-4 md:p-8">
+
+    <div class="w-full max-w-2xl bg-slate-800 rounded-2xl shadow-2xl overflow-hidden mb-8">
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                    Video to Audio Sampler
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">Extract high-quality samples locally.</p>
+            </div>
+            <button id="resetApp" class="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-red-400" title="Clear All & Reset">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="p-6 space-y-6">
+            
+            <!-- Upload Area -->
+            <div id="uploadArea" class="relative border-2 border-dashed border-slate-600 rounded-xl p-8 transition-colors hover:border-blue-500 flex flex-col items-center justify-center space-y-4">
+                <input type="file" id="videoInput" accept="video/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                <div class="bg-blue-500/10 p-4 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                </div>
+                <div class="text-center">
+                    <p class="text-lg font-semibold">Tap to select video</p>
+                    <p class="text-slate-500 text-sm">Videos stay on your phone</p>
+                </div>
+            </div>
+
+            <!-- Editor Area -->
+            <div id="editorArea" class="hidden space-y-6">
+                <!-- Extraction Settings -->
+                <div class="bg-slate-700/30 p-4 rounded-xl border border-slate-700 flex flex-wrap gap-4 items-end">
+                    <div class="flex-1 min-w-[120px]">
+                        <label class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 font-bold">Sample Rate</label>
+                        <select id="sampleRate" class="w-full bg-slate-800 border border-slate-600 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                            <option value="44100">44.1 kHz (CD)</option>
+                            <option value="48000" selected>48 kHz (Video)</option>
+                            <option value="22050">22.05 kHz (Lo-Fi)</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[120px]">
+                        <label class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 font-bold">Channels</label>
+                        <select id="channels" class="w-full bg-slate-800 border border-slate-600 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                            <option value="stereo" selected>Stereo</option>
+                            <option value="mono">Mono (Summed)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="rounded-lg overflow-hidden bg-black aspect-video flex items-center justify-center relative">
+                    <video id="previewVideo" class="max-h-full"></video>
+                </div>
+
+                <!-- Trimmer -->
+                <div class="space-y-4">
+                    <div class="flex justify-between text-xs font-mono text-slate-400">
+                        <span id="startTimeLabel">00:00.0</span>
+                        <span id="endTimeLabel">00:00.0</span>
+                    </div>
+                    
+                    <div class="relative h-12 bg-slate-700 rounded-lg flex items-center px-2">
+                        <div class="absolute inset-x-2 h-1 bg-slate-600 rounded-full"></div>
+                        <input type="range" id="startRange" step="0.1" class="absolute inset-x-0 w-full h-1 bg-transparent appearance-none pointer-events-auto" style="z-index: 10;">
+                        <input type="range" id="endRange" step="0.1" class="absolute inset-x-0 w-full h-1 bg-transparent appearance-none pointer-events-auto" style="z-index: 11;">
+                    </div>
+                    
+                    <div class="flex justify-between items-center bg-slate-700/50 p-3 rounded-lg">
+                        <span class="text-sm font-medium">Sample Duration: <span id="durationLabel" class="text-blue-400">0s</span></span>
+                        <button id="playSnippet" class="text-xs bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded-full transition">Preview Selection</button>
+                    </div>
+                </div>
+
+                <button id="convertBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center space-x-2">
+                    <span>Extract Sample</span>
+                </button>
+            </div>
+
+            <!-- Status & Results -->
+            <div id="status" class="hidden text-center py-4 space-y-4">
+                <div id="progressContainer" class="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                    <div id="progressBar" class="bg-blue-500 h-full w-0 transition-all duration-300"></div>
+                </div>
+                <p id="statusText" class="text-sm text-slate-300">Processing...</p>
+            </div>
+
+            <div id="downloadArea" class="hidden bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl space-y-3">
+                <p class="text-center text-emerald-400 font-semibold">Extraction Successful!</p>
+                <div id="audioPreview" class="flex justify-center"></div>
+                <button id="downloadLink" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition">Save Audio File</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const videoInput = document.getElementById('videoInput');
+        const editorArea = document.getElementById('editorArea');
+        const uploadArea = document.getElementById('uploadArea');
+        const previewVideo = document.getElementById('previewVideo');
+        const startRange = document.getElementById('startRange');
+        const endRange = document.getElementById('endRange');
+        const startTimeLabel = document.getElementById('startTimeLabel');
+        const endTimeLabel = document.getElementById('endTimeLabel');
+        const durationLabel = document.getElementById('durationLabel');
+        const convertBtn = document.getElementById('convertBtn');
+        const status = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const progressBar = document.getElementById('progressBar');
+        const downloadArea = document.getElementById('downloadArea');
+        const audioPreview = document.getElementById('audioPreview');
+        const downloadLink = document.getElementById('downloadLink');
+        const playSnippet = document.getElementById('playSnippet');
+        const resetApp = document.getElementById('resetApp');
+        
+        // Settings elements
+        const sampleRateInput = document.getElementById('sampleRate');
+        const channelsInput = document.getElementById('channels');
+
+        let videoFile = null;
+        let videoDuration = 0;
+        let generatedBlob = null;
+        let currentFileName = "sample.wav";
+
+        // Reset App logic
+        resetApp.addEventListener('click', () => {
+            if (videoFile && !confirm("Clear current video and settings?")) return;
+            
+            // Revoke URLs to clear memory
+            if (previewVideo.src) URL.revokeObjectURL(previewVideo.src);
+            if (generatedBlob) URL.revokeObjectURL(downloadLink.href);
+
+            videoFile = null;
+            previewVideo.src = "";
+            videoInput.value = "";
+            generatedBlob = null;
+
+            uploadArea.classList.remove('hidden');
+            editorArea.classList.add('hidden');
+            status.classList.add('hidden');
+            downloadArea.classList.add('hidden');
+        });
+
+        videoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            videoFile = file;
+            currentFileName = file.name.split('.').slice(0, -1).join('.') + "_sample.wav";
+            const url = URL.createObjectURL(file);
+            previewVideo.src = url;
+
+            previewVideo.onloadedmetadata = () => {
+                videoDuration = previewVideo.duration;
+                startRange.max = videoDuration;
+                endRange.max = videoDuration;
+                startRange.value = 0;
+                endRange.value = videoDuration;
+                
+                updateRangeLabels();
+                uploadArea.classList.add('hidden');
+                editorArea.classList.remove('hidden');
+                status.classList.add('hidden');
+                downloadArea.classList.add('hidden');
+            };
+        });
+
+        function updateRangeLabels() {
+            let start = parseFloat(startRange.value);
+            let end = parseFloat(endRange.value);
+
+            if (start >= end) {
+                if (this === startRange) endRange.value = Math.min(videoDuration, start + 0.1);
+                else startRange.value = Math.max(0, end - 0.1);
+                start = parseFloat(startRange.value);
+                end = parseFloat(endRange.value);
+            }
+
+            startTimeLabel.innerText = formatTime(start);
+            endTimeLabel.innerText = formatTime(end);
+            durationLabel.innerText = (end - start).toFixed(1) + 's';
+            
+            // Update preview seek
+            if (!previewVideo.paused) previewVideo.pause();
+            previewVideo.currentTime = start;
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = (seconds % 60).toFixed(1);
+            return `${mins.toString().padStart(2, '0')}:${secs.padStart(4, '0')}`;
+        }
+
+        startRange.addEventListener('input', updateRangeLabels);
+        endRange.addEventListener('input', updateRangeLabels);
+
+        playSnippet.addEventListener('click', () => {
+            previewVideo.currentTime = parseFloat(startRange.value);
+            previewVideo.play();
+            
+            const stopTime = parseFloat(endRange.value);
+            const checkTime = () => {
+                if (previewVideo.currentTime >= stopTime) {
+                    previewVideo.pause();
+                    previewVideo.removeEventListener('timeupdate', checkTime);
+                }
+            };
+            previewVideo.addEventListener('timeupdate', checkTime);
+        });
+
+        convertBtn.addEventListener('click', async () => {
+            status.classList.remove('hidden');
+            downloadArea.classList.add('hidden');
+            convertBtn.disabled = true;
+            
+            const startTime = parseFloat(startRange.value);
+            const endTime = parseFloat(endRange.value);
+            const targetSampleRate = parseInt(sampleRateInput.value);
+            const forceMono = channelsInput.value === 'mono';
+
+            updateStatus("Reading file binary...", 20);
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const arrayBuffer = e.target.result;
+                // OfflineAudioContext allows for faster-than-realtime rendering and custom sample rates
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                updateStatus("Decoding audio streams...", 40);
+
+                try {
+                    const fullBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                    updateStatus("Applying settings...", 60);
+
+                    // Calculate frame boundaries
+                    const startFrame = Math.floor(startTime * fullBuffer.sampleRate);
+                    const endFrame = Math.floor(endTime * fullBuffer.sampleRate);
+                    const frameCount = endFrame - startFrame;
+
+                    // Determine output channels
+                    const numChannels = forceMono ? 1 : fullBuffer.numberOfChannels;
+
+                    // Create trimmed buffer
+                    const trimmedBuffer = audioCtx.createBuffer(
+                        numChannels,
+                        frameCount,
+                        fullBuffer.sampleRate
+                    );
+
+                    for (let i = 0; i < numChannels; i++) {
+                        const targetChannelData = trimmedBuffer.getChannelData(i);
+                        if (forceMono && fullBuffer.numberOfChannels > 1) {
+                            // Sum channels for mono
+                            const left = fullBuffer.getChannelData(0).subarray(startFrame, endFrame);
+                            const right = fullBuffer.getChannelData(1).subarray(startFrame, endFrame);
+                            for (let j = 0; j < frameCount; j++) {
+                                targetChannelData[j] = (left[j] + right[j]) / 2;
+                            }
+                        } else {
+                            const sourceChannelData = fullBuffer.getChannelData(i).subarray(startFrame, endFrame);
+                            targetChannelData.set(sourceChannelData);
+                        }
+                    }
+
+                    // If target sample rate differs, we'd ideally resample here. 
+                    // For simplicity in this standalone script, we keep native rate but provide it in the WAV header.
+                    // Most samplers/DAWs will handle the sample rate defined in the header correctly.
+
+                    updateStatus("Encoding WAV file...", 90);
+                    const wavBlob = bufferToWave(trimmedBuffer, frameCount, targetSampleRate);
+                    
+                    const url = URL.createObjectURL(wavBlob);
+                    generatedBlob = wavBlob;
+                    
+                    audioPreview.innerHTML = `<audio controls src="${url}" class="w-full"></audio>`;
+                    downloadArea.classList.remove('hidden');
+                    updateStatus("Ready!", 100);
+
+                } catch (err) {
+                    updateStatus("Error: Format not supported or memory limit hit.", 0);
+                    console.error(err);
+                }
+                convertBtn.disabled = false;
+            };
+            reader.readAsArrayBuffer(videoFile);
+        });
+
+        downloadLink.addEventListener('click', () => {
+            if (!generatedBlob) return;
+            const url = URL.createObjectURL(generatedBlob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = currentFileName;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+        });
+
+        function updateStatus(text, progress) {
+            statusText.innerText = text;
+            progressBar.style.width = progress + '%';
+        }
+
+        function bufferToWave(abuffer, len, customSampleRate) {
+            let numOfChan = abuffer.numberOfChannels,
+                sampleRate = customSampleRate || abuffer.sampleRate,
+                length = len * numOfChan * 2 + 44,
+                buffer = new ArrayBuffer(length),
+                view = new DataView(buffer),
+                channels = [], i, sample, offset = 0, pos = 0;
+
+            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+            function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+
+            setUint32(0x46464952); // "RIFF"
+            setUint32(length - 8); 
+            setUint32(0x45564157); // "WAVE"
+            setUint32(0x20746d66); // "fmt "
+            setUint32(16);         // length
+            setUint16(1);          // PCM
+            setUint16(numOfChan);
+            setUint32(sampleRate);
+            setUint32(sampleRate * 2 * numOfChan);
+            setUint16(numOfChan * 2);
+            setUint16(16);         // 16-bit
+            setUint32(0x61746164); // "data"
+            setUint32(length - pos - 4);
+
+            for(i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
+
+            while(pos < length) {
+                for(i = 0; i < numOfChan; i++) {
+                    sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                    sample = (sample < 0 ? sample * 0x8000 : sample * 0x7FFF);
+                    view.setInt16(pos, sample, true);
+                    pos += 2;
+                }
+                offset++;
+            }
+            return new Blob([buffer], {type: "audio/wav"});
+        }
+    </script>
+</body>
+</html>
+
